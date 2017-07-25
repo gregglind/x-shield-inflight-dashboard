@@ -153,12 +153,13 @@ Type: ${revs[0].recipe.action.name}`);
 
     debugger;
     let tpl = `
-{{iter}}: ({{{reltime}}})    {{revId}} {{date_created}}
-    {{{comment}}}
+{{iter}}: ({{{reltime}}})    {{revId}} {{date_created}}{{#comment}}\n    {{{comment}}}{{/comment}}
     changes: {{{changes}}}
     current: enabled:{{status.enabled}} approved:{{status.approved}}
     sample: {{{sampling}}}`;
 
+    let comment;
+    if (status[ii].comment) comment = `"${status[ii].comment}" --${status[ii].approver}`
     let ctx = {
       iter: context.iter,
       date_created: rev.date_created,
@@ -166,9 +167,7 @@ Type: ${revs[0].recipe.action.name}`);
       reltime: moment(rev.date_created).calendar(),
       revId: rev.id.substring(0,6),
       status: status[ii] || {},
-      comment: function () {
-        if (status[ii].comment) return `"${status[ii].comment}" --${status[ii].approver}`
-      },
+      comment: comment,
       sampling: formatSample(sampling[ii]),
     }
     console.log(moustache.render(tpl, ctx))
