@@ -1,8 +1,23 @@
 
-recipeId = process.argv[2] || "201"
+/* Goals
+
+For each REV of a RECIPE:
+- DATE
+- Comment
+- STATUS:
+  - active | draft | approval | ???
+- did sampling change
+  - size
+  - locales etc
+- current sampling
+*/
+
+const recipeId = process.argv[2] || "201"
 
 const request = require("request");
-
+const moustache = require("moustache");
+const moment = require("moment");
+const equal = require('deep-equal');
 const url = `https://normandy.cdn.mozilla.net/api/v2/recipe/${recipeId}/history/`;
 
 // mozjexl
@@ -24,15 +39,15 @@ function visitTree(jexlParseTree, cb) {
     cb(tree);
     visit(tree.left, cb);
     visit(tree.right, cb);
-  };
+  }
   visit(tree, cb);
   return out;
-};
+}
 
 function samplingVisitor (out, tree) {
   //console.log(tree);
   if (tree.type != "Transform") return;
-  let samplers = ["bucketSample", "stableSample"];
+  const samplers = ["bucketSample", "stableSample"];
   if (samplers.includes(tree.name)) {
     out.push({
       which: tree.name,
@@ -41,57 +56,132 @@ function samplingVisitor (out, tree) {
     });
     //console.log(out);
   }
-};
-
+}
 
 function describeSampling (aFilterExpression) {
-  P = new Parser(defaultGrammar);
+  const P = new Parser(defaultGrammar);
   P.addTokens(new Lexer(defaultGrammar).tokenize(aFilterExpression))
-  let ans = visitTree(P._tree, samplingVisitor);
+  const ans = visitTree(P._tree, samplingVisitor);
   //console.log(ans);
   //debugger;
   return ans;
 }
 
-function formatBucketSampleHistory(samples) {
-  samples.map(s=>{
-    s = s[0];
-    console.log(`${s.which}: ${s.args[1]}, starting at ${s.args[0]} ${s.args[2]}`);
-  })
+function describeStatus (rev) {
+  const out = {
+    enabled: rev.recipe.enabled,
+    approved: rev.recipe.is_approved
+  }
+  const ar = rev.approval_request;
+  if (ar) {
+    out.creator = ar.creator.email;
+    out.approver = (ar.approver || {}).email;
+    out.comment =ar.comment;
+  }
+  return out;
 }
 
-function formatStableSampleHistory(samples) {
-
+function formatSample(s) {
+  s = s[0];  // the first sampling thing we see.
+  switch (s.which) {
+    case "bucketSample": {
+      return `${s.which}: ${s.args[1]}, starting at ${s.args[0]} ${s.args[2]}`;
+    }
+    case "stableSample": {
+      return JSON.stringify(s);
+    }
+    default:
+      return JSON.stringify(s);
+  }
 }
 
 
 function formattedHistory(revs) {
   console.log(`
 Name: ${revs[0].recipe.name}
-Type: ${revs[0].recipe.action.name}
+Type: ${revs[0].recipe.action.name}`);
 
-  `);
-
-  // sampling history
-  let sampling = revs.map((r)=>describeSampling(r.recipe.filter_expression));
-  debugger;
-  switch (sampling[0][0].which) {
-    case "bucketSample": {
-      formatBucketSampleHistory(sampling);
-      break;
-    };
-    case "stableSample": {
-      formatStableSampleHistory(sampling);
+  const xtype = revs[0].recipe.action.name;
+  switch (xtype) {
+    case "preference-experiment": {
+      console.log(revs[0].recipe.arguments);
       break;
     }
-    default:
-      console.log(sampling[0])
-
+    default: {
+      console.log(revs[0].recipe.arguments);
+    }
   }
-  //console.log(sampling)
-};
+  // Go through each rev, and start creating TAGS for those revs
+  // 1. sampling
+  const sampling = revs.map((r)=>describeSampling(r.recipe.filter_expression));
+  // 2. date
+  // 3. status
+  const status = revs.map((r)=>describeStatus(r));
+
+  // loop through all the these together to create a FORMATTED HISTORY
+  function formatRev (ii, context) {
+    equal;
+    moustache;
+    moment;
+    const rev = revs[ii];
+    const prev = revs[ii+1];
+
+    // changes of interest!!!  TODO @glind make this less gory
+    const changes = [];
+    if (prev) {
+      if (!equal(sampling[ii], sampling[ii+1])) {
+        changes.push("sampling-change");
+      }
+
+      let s1 = status[ii],
+          s0 = status[ii+1];
+      switch ([s0.enabled,s1.enabled].join("")) {
+        case "truefalse":
+          changes.push("disabled");
+          break;
+        case "truetrue":
+          //changes.push("enabled");
+          break;
+        case "falsetrue":
+          changes.push("new-enabled");
+          break;
+        case "falsefalse":
+          //changes.push("");
+          break;
+      }
+    }
+
+    debugger;
+    let tpl = `
+{{iter}}: ({{{reltime}}})    {{revId}} {{date_created}}
+    {{{comment}}}
+    changes: {{{changes}}}
+    current: enabled:{{status.enabled}} approved:{{status.approved}}
+    sample: {{{sampling}}}`;
+
+    let ctx = {
+      iter: context.iter,
+      date_created: rev.date_created,
+      changes: changes.join(" "),
+      reltime: moment(rev.date_created).calendar(),
+      revId: rev.id.substring(0,6),
+      status: status[ii] || {},
+      comment: function () {
+        if (status[ii].comment) return `"${status[ii].comment}" --${status[ii].approver}`
+      },
+      sampling: formatSample(sampling[ii]),
+    }
+    console.log(moustache.render(tpl, ctx))
+  }
+
+  console.log("\n## Revision history");
+
+  for (let ii=0; ii < revs.length; ii++) {
+    formatRev(ii, {iter: revs.length - ii})
+  }
+}
 
 request(url,function(a,b,body) {
-  revs = JSON.parse(body);
+  const revs = JSON.parse(body);
   formattedHistory(revs);
 })

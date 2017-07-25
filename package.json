@@ -13,7 +13,12 @@
     "sync-request": "^4.1.0"
   },
   "devDependencies": {
+    "deep-equal": "^1.0.1",
+    "eslint": "^4.3.0",
+    "moment": "^2.18.1",
+    "moustache": "0.0.2",
     "mozjexl": "^1.1.5",
+    "npx": "^9.4.1",
     "request": "^2.81.0"
   }
 }
