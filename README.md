@@ -6,7 +6,8 @@
 
 ## Usage: history of a recipe
 
-`clear; node recipe-history.js  201 | less -f
+```
+clear; node recipe-history.js  201 | less -f
 
 Name: Shield Study 13 - Net Neutrality
 Type: show-heartbeat
@@ -40,12 +41,11 @@ Type: show-heartbeat
     current: enabled:true approved:false
     sample: bucketSample: 41, starting at 358 1000
 ...
-
+```
 
 ## future work
 
 1.  Make it graphical for enahanced display / filtering / annotation
 2.  "Things on fire"... recent changes, things needing attention.
 
-`
-`
+
