@@ -1,3 +1,4 @@
+const VERSION = require("./package.json").version;
 
 /* Goals
 
@@ -21,8 +22,8 @@ const equal = require('deep-equal');
 const url = `https://normandy.cdn.mozilla.net/api/v2/recipe/${recipeId}/history/`;
 
 // mozjexl
-var Evaluator = require('mozjexl/lib/evaluator/Evaluator'),
-  Lexer = require('mozjexl/lib/Lexer'),
+//var Evaluator = require('mozjexl/lib/evaluator/Evaluator'),
+var  Lexer = require('mozjexl/lib/Lexer'),
   Parser = require('mozjexl/lib/parser/Parser'),
   defaultGrammar = require('mozjexl/lib/grammar').elements;
 
@@ -133,34 +134,35 @@ Type: ${revs[0].recipe.action.name}`);
         changes.push("sampling-change");
       }
 
-      let s1 = status[ii],
+      const s1 = status[ii],
           s0 = status[ii+1];
-      switch ([s0.enabled,s1.enabled].join("")) {
-        case "truefalse":
-          changes.push("disabled");
-          break;
-        case "truetrue":
-          //changes.push("enabled");
-          break;
-        case "falsetrue":
-          changes.push("new-enabled");
-          break;
-        case "falsefalse":
-          //changes.push("");
-          break;
-      }
+
+      const stateFlags = {
+        enabled: {
+          truefalse: 'disabled',
+          falsetrue: "now-enabled"
+        },
+        approved: {
+          falsetrue: "now-approved"
+        }
+      };
+      ['enabled', 'approved'].map(s=>{
+        const flag = stateFlags[s][[s0[s],s1[s]].join("")];
+        if (flag) changes.push(flag);
+      })
     }
 
-    debugger;
-    let tpl = `
-{{iter}}: ({{{reltime}}})    {{revId}} {{date_created}}{{#comment}}\n    {{{comment}}}{{/comment}}
-    changes: {{{changes}}}
+
+    const tpl = `
+{{iter}}: ({{{reltime}}})    {{revId}} {{date_created}}
+    {{#comment}}{{{comment}}}{{/comment}}
+    {{#changes}}changes: {{{changes}}}{{/changes}}
     current: enabled:{{status.enabled}} approved:{{status.approved}}
     sample: {{{sampling}}}`;
 
     let comment;
     if (status[ii].comment) comment = `"${status[ii].comment}" --${status[ii].approver}`
-    let ctx = {
+    const ctx = {
       iter: context.iter,
       date_created: rev.date_created,
       changes: changes.join(" "),
@@ -180,7 +182,23 @@ Type: ${revs[0].recipe.action.name}`);
   }
 }
 
-request(url,function(a,b,body) {
-  const revs = JSON.parse(body);
-  formattedHistory(revs);
-})
+const getHistory = exports.getHistory = function (recipeId) {
+  const url = `https://normandy.cdn.mozilla.net/api/v2/recipe/${recipeId}/history/`;
+  request(url,function(a,b,body) {
+    const revs = JSON.parse(body);
+    formattedHistory(revs);
+  })
+}
+
+if (require.main === module) {
+  var program = require('commander');
+  program
+    .version(VERSION)
+    .usage('<recipeId>')
+    .action(function (recipeId) {
+      getHistory(recipeId);
+    })
+    .parse(process.argv);
+
+  if (!program.args.length) program.help();
+}

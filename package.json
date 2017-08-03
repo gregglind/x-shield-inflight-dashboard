@@ -13,12 +13,21 @@
     "sync-request": "^4.1.0"
   },
   "devDependencies": {
+    "chalk": "^2.0.1",
+    "clui": "^0.3.6",
     "deep-equal": "^1.0.1",
     "eslint": "^4.3.0",
+    "jsonfile": "^3.0.1",
+    "lodash": "^4.17.4",
+    "meow": "^3.7.0",
+    "minimist": "^1.2.0",
     "moment": "^2.18.1",
     "moustache": "0.0.2",
     "mozjexl": "^1.1.5",
+    "node-fetch": "^1.7.1",
     "npx": "^9.4.1",
-    "request": "^2.81.0"
+    "preferences": "^0.2.1",
+    "request": "^2.81.0",
+    "request-promise-native": "^1.0.4"
   }
 }
