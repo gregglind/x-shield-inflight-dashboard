@@ -78,7 +78,7 @@ class InlflightTable extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      recipes: []
+      recipes: null,
     };
   }
   componentDidMount() {
@@ -90,9 +90,21 @@ class InlflightTable extends Component {
     //    console.log("set state", this.state.recipes.length)
     //  });
   }
+  promiseRecipes () {
+    let recipes = this.state.recipes;
+    if (recipes) {
+      return Promise.resolve(recipes)
+    } else {
+      return fetchAllRecipes()
+       .then(recipes => {
+          let processed = processRecipes(recipes);
+          this.setState({ recipes: processed});
+          return Promise.resolve(processed);
+      })
+    }
+  }
 
   render() {
-    console.log("rendering", this.state.recipes.length)
     /*var data = [
       {enabled: true},
       {enabled: false},
@@ -193,7 +205,7 @@ class InlflightTable extends Component {
     ]
     return (
       <ReactTable
-        data={this.state.recipes}
+        data={this.state.recipes || []}
         columns={columns}
         loading={this.state.loading}
         defaultPageSize={20}
@@ -201,13 +213,11 @@ class InlflightTable extends Component {
         onFetchData={(state, instance) => {
           // show the loading overlay
           this.setState({loading: true});
-          fetchAllRecipes()
-            .then(recipes => {
-              let processed = processRecipes(recipes);
-              this.setState({ recipes: processed,
-                loading: false });
-              console.log("set state", this.state.recipes.length)
-            });
+          let recipes = this.promiseRecipes();
+          recipes.then((recipeList)=>{
+            console.log(recipeList.length)
+            this.setState({recipes: recipeList || [], loading: false });
+          })
         }}
       />
     )
