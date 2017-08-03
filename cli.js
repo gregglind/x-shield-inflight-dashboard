@@ -51,7 +51,7 @@ function displayInflight (recipes) {
       debugger;
       const L = new Line()
       .column(" *"[Number(d.enabled)], 10 )
-      .column(" *"[Number(d.enabled)], 10 )
+      .column(" *"[Number(d.approved)], 10 )
       .column(d.arguments.preferenceName, 50 )
       .padding(2)
       .column(d.bug, 10)

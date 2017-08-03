@@ -1,8 +1,3 @@
-const request = require("request");
-const moustache = require("moustache");
-const moment = require("moment");
-const equal = require('deep-equal');
-
 // mozjexl
 //var Evaluator = require('mozjexl/lib/evaluator/Evaluator'),
 var  Lexer = require('mozjexl/lib/Lexer'),
@@ -49,19 +44,61 @@ function _samplingVisitor (out, tree) {
   }
 }
 
+function followId (tree) {
+  const parts = [tree.value];
+  while(tree.from) {
+    tree = tree.from;
+    parts.push(tree.value);
+  }
+  return parts.reverse().join(".");
+}
+
+function _channelsVisitor (out, tree) {
+  /* this only does the SIMPLEST THING, exact equality */
+
+  //console.log(tree);
+  if (tree.type != "BinaryExpression") return;
+  if (tree.operator == "==") {
+    debugger;
+    // in a == binaryExpression.
+    // check if LEFT is 'normandy.channel'
+    let Id = followId(tree.left);
+    if (Id === "normandy.channel") {
+      out.push(tree.right.value);
+    }
+  }
+}
+
 function sampling (aFilterExpression) {
-  const P = new Parser(defaultGrammar);
-  P.addTokens(new Lexer(defaultGrammar).tokenize(aFilterExpression))
+  const P = parseJexl(aFilterExpression);
   const ans = visitAST(P._tree, _samplingVisitor);
   //console.log(ans);
   //debugger;
   return ans;
 }
 
+function channels (aFilterExpression) {
+  const P = parseJexl(aFilterExpression);
+  const ans = visitAST(P._tree, _channelsVisitor);
+  //console.log(ans);
+  //debugger;
+  return ans;
+}
 
 module.exports = {
   visitAST,
   Parser,
   parseJexl,
-  sampling
+  sampling,
+  channels
+}
+
+if (require.main === module) {
+  const expression = process.argv[2];
+  P = parseJexl(expression);
+  console.log(P._tree);
+
+  let command = process.argv[3];
+  if (command) console.log(module.exports[command](expression));
+  debugger;
 }
