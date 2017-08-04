@@ -13,12 +13,6 @@ import {
   Link
 } from 'react-router-dom'
 
-import {
-  If,
-  ElseIf,
-  Else
-} from 'react-if-else';
-
 import ReactTable from 'react-table';
 import 'react-table/react-table.css'
 
@@ -34,6 +28,15 @@ import cached_recipes from './pref-experiments.json';
 
 const FETCH_LIVE_RECIPES = process.env.NODE_ENV === "production"
   || process.env.REACT_APP_FETCH_LIVE_RECIPES;
+
+
+let BASENAME = '';
+switch (process.env.NODE_ENV) {
+  case "production":
+    BASENAME = "/x-shield-inflight-dashboard";
+    break;
+  default:
+}
 
 function fetchAllRecipes () {
   if (FETCH_LIVE_RECIPES) {
@@ -404,7 +407,7 @@ class App extends Component {
             </Navbar.Collapse>
         </Navbar>
 
-        <Router>
+        <Router basename={ BASENAME }>
           <Switch>
             <Route exact path="/" component={Dashboard}/>
             <Route path="/about" component={About}/>
