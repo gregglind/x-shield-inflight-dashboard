@@ -9,8 +9,15 @@ import { Grid,
 import {
   BrowserRouter as Router,
   Switch,
-  Route
+  Route,
+  Link
 } from 'react-router-dom'
+
+import {
+  If,
+  ElseIf,
+  Else
+} from 'react-if-else';
 
 import ReactTable from 'react-table';
 import 'react-table/react-table.css'
@@ -145,8 +152,10 @@ class InlflightTable extends Component {
         "maxWidth": 40,
         "Cell": props => {
           let recipeId = props.value;
+          console.log(props);
           const url = `https://normandy.cdn.mozilla.net/api/v2/recipe/${recipeId}/history/`;
-          return <a href={url} className='number'>{props.value}</a> // Custom cell components!
+          return <Link to={`/recipe/${recipeId}`}>{recipeId}</Link>;
+          //return <a href={url} className='number'>{props.value}</a> // Custom cell components!
         }
       },
       {
@@ -237,25 +246,134 @@ class RecipeHistory extends Component {
     super(props);
     this.state = {
       recipeHistory: null,
+      raw: null
     };
   }
-  componentDidMount() {
-    const recipeId = this.props.match.params.recipeId;
-    normandy.fetchRecipeHistory(recipeId).then(rlist=>{
+  promiseRecipeHistory (recipeId) {
+
+    if (this.state.recipeHistory) return Promise.resolve(this.state)
+    else {
+      return normandy.fetchRecipeHistory(recipeId).then(rlist=>{
         console.log("GOT HISTORY", recipeId, rlist);
-        const h = describeHistory(rlist);
-        this.setState({recipeHistory: h})
-    })
+        return {
+          recipeHistory: describeHistory(rlist),
+          raw: rlist
+        }
+      })
+    }
   }
   render () {
     const match = this.props.match;
+    const recipeId = match.params.recipeId;
+
+    /*
+     tpl = `
+{{iter}}: ({{{reltime}}})    {{revId}} {{date_created}}
+    {{#comment}}{{{comment}}}{{/comment}}
+    {{#changes}}changes: {{{changes}}}{{/changes}}
+    current: enabled:{{status.enabled}} approved:{{status.approved}}
+    sample: {{{sampling}}}`;
+    */
+    const columns = [
+      {
+        "Header": "Rev",
+        "accessor": "iter",
+        maxWidth: 80
+      },
+      {
+        "Header": "Time",
+        "accessor": x=>moment(x.reltime).calendar(),
+        "id": "ts",
+        width: 100
+      },
+      {
+        "Header": "id",
+        "accessor": "revId",
+        maxWidth: 80,
+      },
+      {
+        "Header": "comment",
+        "accessor": "comment",
+        // handle comment / text fields
+        Cell: row => (
+          <div
+            style={{
+              whiteSpace: "normal",
+              overflow: "visible"
+            }}
+          > {row.value}
+          </div>
+        ),
+        "minWidth": 200
+      },
+      {
+        "Header": "changes",
+        "accessor": "changes",
+        Cell: row => (<div
+          style={{
+            whiteSpace: "normal",
+            overflow: "visible",
+            hyphens: "none"
+          }}
+        > {row.value}
+        </div>)
+
+      },
+      {
+        "Header": "enabled",
+        "id": "enabled",
+        "accessor": x=>x.status.enabled.toString()
+      },
+      {
+        "Header": "approved",
+        "id": "approved",
+        "accessor": x=>x.status.approved.toString()
+      },
+      {
+        "Header": "sample",
+        "id": "sample",
+        "accessor": "sampling",
+        "minWidth": 150,
+      },
+    ]
+
+    let Description = (props) => {
+      if (this.state.raw) {
+        const rev0 = this.state.raw[0];
+        return (
+          <div>
+            <h4><strong>Name</strong>:  {rev0.recipe.name}</h4>
+            <h4><strong>Type</strong>:  {rev0.recipe.action.name}</h4>
+          </div>
+        )
+      } else return (
+       <div><p>Loading Summary data....</p></div>
+      )
+    }
     return (
       <div>
-        <h3>history for recipe {match.params.recipeId}</h3>
+        <h3>history for recipe {recipeId}</h3>
+        <Description />
+        <ReactTable
+          data={this.state.recipeHistory || []}
+          columns={columns}
+          loading={this.state.loading}
+          defaultPageSize={20}
+          minRows={3}
+          onFetchData={(state, instance) => {
+            // show the loading overlay
+            this.setState({loading: true});
+            let data = this.promiseRecipeHistory(recipeId);
+            data.then(({recipeHistory, raw})=>{
+              this.setState({recipeHistory, raw, loading: false });
+            })
+          }}
+        />
         <pre>
-        {JSON.stringify(this.state.recipeHistory, null, 2)}
+          {JSON.stringify(this.state.recipeHistory, null, 2)}
         </pre>
       </div>
+
     )
   }
 }
