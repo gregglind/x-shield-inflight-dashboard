@@ -1,39 +1,36 @@
 import React, { Component } from 'react';
-import { Grid, Navbar, Jumbotron, Button } from 'react-bootstrap';
+import { Grid,
+  Navbar,
+  Nav,
+  NavItem,
+  Jumbotron,
+  Button
+} from 'react-bootstrap';
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route
+} from 'react-router-dom'
+
 import ReactTable from 'react-table';
 import 'react-table/react-table.css'
 
 import logo from './logo.svg';
 import './App.css';
 
+import * as normandy from './normandy-fetch-api';
 import * as jexlUtils from './jexl-utils';
 
+import { describeHistory } from './recipeHistory'
 import moment from 'moment';
 import cached_recipes from './pref-experiments.json';
 
 const FETCH_LIVE_RECIPES = process.env.NODE_ENV === "production"
   || process.env.REACT_APP_FETCH_LIVE_RECIPES;
 
-function _fetchAllRecipes () {
-  // until CORS at normandy is solved.
-  const myHeaders = new Headers({
-    "X-Requested-With": "X-Shield-Inflight-Dashboard",
-  });
-  var myInit = { method: 'GET',
-               headers: myHeaders,
-               mode: 'cors',
-               cache: 'default' };
-
-  const CORS_ANYWHERE = "https://cors-anywhere.herokuapp.com"
-  const API_ROOT = "https://normandy.cdn.mozilla.net/api/v2";
-  const uri = `${CORS_ANYWHERE}/${API_ROOT}/recipe/`;
-  console.log("loading!", uri)
-  return fetch(uri, myInit).then((res)=>res.json())
-}
-
 function fetchAllRecipes () {
   if (FETCH_LIVE_RECIPES) {
-    return _fetchAllRecipes()
+    return normandy.fetchAllRecipes()
   } else {
     return Promise.resolve(cached_recipes);
   }
@@ -71,8 +68,6 @@ function processRecipes (recipes) {
     }
   }).filter(Boolean)
 }
-
-
 
 class InlflightTable extends Component {
   constructor(props) {
@@ -224,22 +219,81 @@ class InlflightTable extends Component {
   }
 }
 
+const About = () => (
+  <div>
+    <h2>About</h2>
+  </div>
+)
+
+const Home = () => (
+  <h3> this is the home page</h3>
+);
+const NoMatch = () => (
+  <h3>You are not supposed to be here!</h3>
+)
+
+class RecipeHistory extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      recipeHistory: null,
+    };
+  }
+  componentDidMount() {
+    const recipeId = this.props.match.params.recipeId;
+    normandy.fetchRecipeHistory(recipeId).then(rlist=>{
+        console.log("GOT HISTORY", recipeId, rlist);
+        const h = describeHistory(rlist);
+        this.setState({recipeHistory: h})
+    })
+  }
+  render () {
+    const match = this.props.match;
+    return (
+      <div>
+        <h3>history for recipe {match.params.recipeId}</h3>
+        <pre>
+        {JSON.stringify(this.state.recipeHistory, null, 2)}
+        </pre>
+      </div>
+    )
+  }
+}
+
+const Dashboard = () => (
+  <InlflightTable />
+)
+
 class App extends Component {
   render() {
     return (
       <div className="Main">
-        <Navbar inverse>
-          <Grid>
+        <Navbar inverse collapseOnSelect>
             <Navbar.Header>
               <Navbar.Brand>
                 <a href="/">X-Shield Studies Inflight Dashboard</a>
               </Navbar.Brand>
               <Navbar.Toggle />
             </Navbar.Header>
-          </Grid>
+            <Navbar.Collapse>
+              <Nav pullRight>
+                  <NavItem
+                      eventKey={1}
+                      href="https://github.com/gregglind/x-shield-inflight-dashboard/">
+                      <img alt="Github Repository Link" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyRpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNS1jMDIxIDc5LjE1NDkxMSwgMjAxMy8xMC8yOS0xMTo0NzoxNiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6RERCMUIwOUY4NkNFMTFFM0FBNTJFRTMzNTJEMUJDNDYiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6RERCMUIwOUU4NkNFMTFFM0FBNTJFRTMzNTJEMUJDNDYiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoTWFjaW50b3NoKSI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkU1MTc4QTJBOTlBMDExRTI5QTE1QkMxMDQ2QTg5MDREIiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOkU1MTc4QTJCOTlBMDExRTI5QTE1QkMxMDQ2QTg5MDREIi8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+jUqS1wAAApVJREFUeNq0l89rE1EQx3e3gVJoSPzZeNEWPKgHoa0HBak0iHiy/4C3WvDmoZ56qJ7txVsPQu8qlqqHIhRKJZceesmhioQEfxTEtsoSpdJg1u/ABJ7Pmc1m8zLwgWTmzcw3L+/te+tHUeQltONgCkyCi2AEDHLsJ6iBMlgHL8FeoqokoA2j4CloRMmtwTmj7erHBXPgCWhG6a3JNXKdCiDl1cidVbXZkJoXQRi5t5BrxwoY71FzU8S4JuAIqFkJ2+BFSlEh525b/hr3+k/AklDkNsf6wTT4yv46KIMNpsy+iMdMc47HNWxbsgVcUn7FmLAzzoFAWDsBx+wVP6bUpp5ewI+DOeUx0Wd9D8F70BTGNjkWtqnhmT1JQAHcUgZd8Lo3rQb1LAT8eJVUfgGvHQigGp+V2Z0iAUUl8QH47kAA1XioxIo+bRN8OG8F/oBjwv+Z1nJgX5jpdzQDw0LCjsPmrcW7I/iHScCAEDj03FtD8A0EyuChHgg4KTlJQF3wZ7WELppnBX+dBFSVpJsOBWi1qiRgSwnOgoyD5hmuJdkWCVhTgnTvW3AgYIFrSbZGh0UW/Io5Vp+DQoK7o80pztWMemZbgxeNwCNwDbw1fIfgGZjhU6xPaJgBV8BdsMw5cbZoHsenwYFxkZzl83xTSKTiviCAfCsJLysH3POfC8m8NegyGAGfLP/VmGmfSChgXroR0RSWjEFv2J/nG84cuKFMf4sTCZqXuJd4KaXFVjEG3+tw4eXbNK/YC9oXXs3O8NY8y99L4BXY5cvLY/Bb2VZ58EOJVcB18DHJq9lRsKr8inyKGVjlmh29mtHs3AHfuhCwy1vXT/Nu2GKQt+UHsGdctyX6eQyNvc+5sfX9Dl7Pe2J/BRgAl2CpwmrsHR0AAAAASUVORK5CYII=" />
+                  </NavItem>
+              </Nav>
+            </Navbar.Collapse>
         </Navbar>
 
-        <InlflightTable />
+        <Router>
+          <Switch>
+            <Route exact path="/" component={Dashboard}/>
+            <Route path="/about" component={About}/>
+            <Route path="/recipe/:recipeId" component={RecipeHistory}/>
+            <Route component={NoMatch}/>
+          </Switch>
+        </Router>
 
         {/*<div className="App-header">
           <img src={logo} className="App-logo" alt="logo" />
