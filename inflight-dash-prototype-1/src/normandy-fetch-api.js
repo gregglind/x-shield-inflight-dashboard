@@ -15,14 +15,18 @@ function fetchCorsAnywhere(uri) {
   return fetch(uri, myInit)
 }
 
-function fetchAllRecipes () {
+async function fetchAllRecipes () {
   const API_ROOT = "https://normandy.cdn.mozilla.net/api/v2";
-  const uri = `${API_ROOT}/recipe/`;
-  console.log("loading!", uri)
-  return fetchCorsAnywhere(uri).then((res)=>{
-    console.log(res);
-    return res.json()
-  })
+  let url = `${API_ROOT}/recipe/`;
+  console.log("loading!", url)
+  let recipes = [];
+  while (url) {
+    let res = await fetchCorsAnywhere(url);
+    let data = res.json();
+    recipes.concat(data.results);
+    url = res.next;
+  }
+  return recipes;
 }
 
 function fetchRecipeHistory (recipeId) {
