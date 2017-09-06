@@ -15,29 +15,28 @@ function fetchCorsAnywhere(uri) {
   return fetch(uri, myInit)
 }
 
-async function fetchAllRecipes () {
+export async function fetchAllRecipes () {
   const API_ROOT = "https://normandy.cdn.mozilla.net/api/v2";
   let url = `${API_ROOT}/recipe/`;
   console.log("loading!", url)
   let recipes = [];
   while (url) {
+    console.log(url);
     let res = await fetchCorsAnywhere(url);
-    let data = res.json();
-    recipes.concat(data.results);
-    url = res.next;
+    let data = await res.json();
+    console.log(data.results.length);
+    recipes = recipes.concat(data.results);
+    url = data.next;
   }
-  return recipes;
+  return Promise.resolve(recipes);
 }
 
-function fetchRecipeHistory (recipeId) {
+
+export function fetchRecipeHistory (recipeId) {
   const uri = `${API_ROOT}/recipe/${recipeId}/history`;
   console.log("loading!", uri)
   return fetchCorsAnywhere(uri).then((res)=>{
     console.log(res);
     return res.json()
-  })}
-
-module.exports = {
-  fetchAllRecipes,
-  fetchRecipeHistory
+  })
 }
